@@ -3,59 +3,66 @@ import dayjs from "dayjs";
 import "./App.css";
 
 var runWach;
-let minutos = 59;
-let pausa = 5;
 
-let test = true;
+let defaultMinutes = 25;
+let defaultBreak = 5;
+let interval = 10;
 
 function App() {
   const format = (str) => {
     return str.padStart(2, "0");
   };
 
-  const [sectionLength, setSectionLength] = useState(minutos);
-  const [breakLength, setBreakLength] = useState(pausa);
+  const convert = (num) => {
+    let minutes = Math.floor(num / 60);
+    let seconds = num % 60;
+    return {
+      minutes: format(String(minutes)),
+      seconds: format(String(seconds)),
+    };
+  };
 
-  const [minutes, setMinutes] = useState(format(String(sectionLength)));
-  const [seconds, setSeconds] = useState(format(String(0)));
+  const Timer = {
+    value: defaultMinutes * 60,
+    session: false,
+    time: convert(defaultMinutes * 60),
+  };
+
+  const [timer, setTimer] = useState(Timer);
+  const [sessionLength, setSessionLength] = useState(defaultMinutes);
+  const [breakLength, setBreakLength] = useState(defaultBreak);
   const [running, setRunning] = useState(false);
-
-  const [sessionBreak, setSessionBreak] = useState(false);
-
-  let days = dayjs().minute(minutes).second(seconds);
 
   const handleClick = () => {
     setRunning(!running);
-    console.log(running);
-    if (running) {
-      clearInterval(runWach);
+    if (!running) {
+      runWach = setInterval(beginCountdown, interval);
     } else {
-      runWach = setInterval(beginCountdown, 100);
+      clearInterval(runWach);
     }
   };
 
   const beginCountdown = () => {
-    days = days.subtract(1, "second");
+    setTimer((prev) => {
+      console.log(prev.value);
+      if (prev.value == 0) {
+        clearInterval(runWach);
+        runWach = setInterval(beginCountdown, interval);
 
-    if (days.second() == "59") {
-      setMinutes(format(String(days.minute())));
-    }
-    setSeconds(String(days.second()).padStart(2, "0"));
-
-    if (days.minute() == "00" && days.second() == "00") {
-      // handleStop();
-      // if (sessionBreak) {
-      //   days = days.minute(minutes);
-      // } else {
-      test = !test;
-      setSessionBreak(test);
-      console.log(test);
-      days = days.minute(breakLength);
-
-      // }
-      // setMinutes(format(String(days.minute())));
-      // clearInterval(runWach);
-    }
+        document.getElementById("beep").play();
+        return {
+          session: !prev.session,
+          value: (prev.session ? sessionLength : breakLength) * 60,
+          time: convert((prev.session ? sessionLength : breakLength) * 60),
+        };
+      }
+      return {
+        ...prev,
+        value: prev.value - 1,
+        time: convert(prev.value - 1),
+      };
+    });
+    console.log(`Timer: ${dayjs().format("HH:mm:ss")}, Value: ${timer.value}`);
   };
 
   const handleStop = () => {
@@ -66,46 +73,54 @@ function App() {
   function handleReset() {
     clearInterval(runWach);
     setRunning(false);
-    setMinutes(String(minutos).padStart(2, "0"));
-    setSeconds(String(pausa).padStart(2, "0"));
-    setSectionLength(minutos);
-    setBreakLength(pausa);
-    days = dayjs().minute(minutes).second(seconds);
+
+    setSessionLength(25);
+    setBreakLength(5);
+
+    setTimer({
+      value: defaultMinutes * 60,
+      time: convert(25 * 60),
+      session: false,
+    });
+
+    const audio = document.getElementById("beep");
+    audio.pause();
+    audio.currentTime = 0;
   }
 
   function decreaseOrIncreaseSession(inc) {
-    if (inc) {
-      if (sectionLength <= 60) {
-        setSectionLength(sectionLength + 1);
-        setMinutes(sectionLength + 1);
-      }
-      console.log(sectionLength + 1);
-      if (sectionLength + 1 == 60) {
-        console.log("60x");
-        days = days.hour(1);
-      } else {
-        days = days.minute(sectionLength + 1).second(0);
-      }
-    } else {
-      if (sectionLength > 1) {
-        days = days.minute(sectionLength - 1).second(0);
-        setSectionLength(sectionLength - 1);
-      }
-    }
-    setMinutes(String(days.minute()).padStart(2, "0"));
-    setSeconds(String(days.second()).padStart(2, "0"));
+    // if (sessionLength >= 60) return;
+    // if (sessionLength <= 0) return;
+
+    setSessionLength((prev) => {
+      return adjust(1, 60, prev, inc);
+    });
+
+    setTimer((prev) => {
+      // let conv = convert(adjust(60, 60 * 60, prev.value, inc, 60));
+      let conv = convert((sessionLength + (inc ? 1 : -1)) * 60);
+      conv.seconds = 0;
+      return {
+        ...prev,
+        // value: adjust(60, 60 * 60, prev.value, inc, 60),
+        time: {
+          minutes: conv.minutes,
+          seconds: format(String(conv.seconds)),
+        },
+      };
+    });
   }
 
+  const adjust = (min, max, num, inc, processor = 1) => {
+    if (num >= max && inc) return num;
+    if (num <= min && !inc) return num;
+    return num + (inc ? processor : -processor);
+  };
+
   function incrementOrDecrementBreak(inc) {
-    if (inc) {
-      if (breakLength < 60) {
-        setBreakLength(breakLength + 1);
-      }
-    } else {
-      if (breakLength > 1) {
-        setBreakLength(breakLength - 1);
-      }
-    }
+    setBreakLength((prev) => {
+      return adjust(1, 60, prev, inc);
+    });
   }
 
   return (
@@ -146,7 +161,7 @@ function App() {
             >
               arrow_downward_alt
             </button>
-            <div id="session-length">{sectionLength}</div>
+            <div id="session-length">{sessionLength} </div>
             <button
               id="session-increment"
               className="material-symbols-outlined arrow"
@@ -159,14 +174,15 @@ function App() {
         </div>
       </div>
       <div className="timer">
-        <h2 id="timer-label">{!sessionBreak ? "Session" : "Break"}</h2>
+        <h2 id="timer-label">{!timer.session ? "Session" : "Break"}</h2>
         <div id="time-left">
-          {minutes}:{seconds}
+          {timer.time.minutes}:{timer.time.seconds}
         </div>
+        <div>{timer.value}</div>
       </div>
       <div id="start_stop" className="timer-control">
         <span
-          // id="start_stop"
+          id="start_stop"
           className="material-symbols-outlined arrow control"
           onClick={handleClick}
         >
@@ -185,6 +201,11 @@ function App() {
         >
           autorenew
         </span>
+        <audio
+          id="beep"
+          preload="auto"
+          src="https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/BeepSound.wav"
+        />
       </div>
     </div>
   );
