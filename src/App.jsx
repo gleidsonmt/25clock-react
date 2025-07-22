@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import dayjs from "dayjs";
+import { useState } from "react";
 import "./App.css";
 
 var runWach;
@@ -35,11 +34,7 @@ function App() {
   const [running, setRunning] = useState(false);
 
   const beginCountdown = () => {
-    console.log("handleClick", running);
-
     setTimer((prev) => {
-      console.log(prev);
-
       if (prev.value == 0) {
         clearInterval(runWach);
         runWach = setInterval(beginCountdown, interval);
@@ -57,17 +52,14 @@ function App() {
         time: convert(prev.value - 1),
       };
     });
-    // console.log(`Timer: ${dayjs().format("HH:mm:ss")}, Value: ${timer.value}`);
   };
 
   function handleClick() {
-    console.log("handleClick", running);
     if (running) {
       clearInterval(runWach);
       setRunning(false);
     } else {
       setRunning(true);
-      //   if (timer.value > 0) {
       runWach = setInterval(beginCountdown, interval);
     }
   }
@@ -97,24 +89,18 @@ function App() {
   }
 
   function decreaseOrIncreaseSession(inc) {
-    // if (sessionLength >= 60) return;
-    // if (sessionLength <= 0) return;
-
     setSessionLength((prev) => {
       return adjust(1, 60, prev, inc);
     });
 
     setTimer((prev) => {
-      // let conv = convert(adjust(60, 60 * 60, prev.value, inc, 60));
       let conv = convert((sessionLength + (inc ? 1 : -1)) * 60);
       if (conv.minutes == "00") {
         conv.minutes = "01";
       }
       conv.seconds = 0;
-
       return {
         ...prev,
-        // value: adjust(60, 60 * 60, prev.value, inc, 60),
         time: {
           minutes: conv.minutes,
           seconds: format(String(conv.seconds)),
