@@ -6,7 +6,7 @@ var runWach;
 
 let defaultMinutes = 25;
 let defaultBreak = 5;
-let interval = 10;
+let interval = 1000;
 
 function App() {
   const format = (str) => {
@@ -16,6 +16,7 @@ function App() {
   const convert = (num) => {
     let minutes = Math.floor(num / 60);
     let seconds = num % 60;
+
     return {
       minutes: format(String(minutes)),
       seconds: format(String(seconds)),
@@ -33,24 +34,18 @@ function App() {
   const [breakLength, setBreakLength] = useState(defaultBreak);
   const [running, setRunning] = useState(false);
 
-  const handleClick = () => {
-    setRunning(!running);
-    if (!running) {
-      runWach = setInterval(beginCountdown, interval);
-    } else {
-      clearInterval(runWach);
-    }
-  };
-
   const beginCountdown = () => {
+    console.log("handleClick", running);
+
     setTimer((prev) => {
-      console.log(prev.value);
+      console.log(prev);
+
       if (prev.value == 0) {
         clearInterval(runWach);
         runWach = setInterval(beginCountdown, interval);
-
         document.getElementById("beep").play();
         return {
+          ...prev,
           session: !prev.session,
           value: (prev.session ? sessionLength : breakLength) * 60,
           time: convert((prev.session ? sessionLength : breakLength) * 60),
@@ -62,8 +57,20 @@ function App() {
         time: convert(prev.value - 1),
       };
     });
-    console.log(`Timer: ${dayjs().format("HH:mm:ss")}, Value: ${timer.value}`);
+    // console.log(`Timer: ${dayjs().format("HH:mm:ss")}, Value: ${timer.value}`);
   };
+
+  function handleClick() {
+    console.log("handleClick", running);
+    if (running) {
+      clearInterval(runWach);
+      setRunning(false);
+    } else {
+      setRunning(true);
+      //   if (timer.value > 0) {
+      runWach = setInterval(beginCountdown, interval);
+    }
+  }
 
   const handleStop = () => {
     clearInterval(runWach);
@@ -71,17 +78,18 @@ function App() {
   };
 
   function handleReset() {
-    clearInterval(runWach);
     setRunning(false);
 
-    setSessionLength(25);
-    setBreakLength(5);
+    setSessionLength(defaultMinutes);
+    setBreakLength(defaultBreak);
 
     setTimer({
       value: defaultMinutes * 60,
-      time: convert(25 * 60),
       session: false,
+      time: convert(defaultMinutes * 60),
     });
+
+    clearInterval(runWach);
 
     const audio = document.getElementById("beep");
     audio.pause();
@@ -99,7 +107,11 @@ function App() {
     setTimer((prev) => {
       // let conv = convert(adjust(60, 60 * 60, prev.value, inc, 60));
       let conv = convert((sessionLength + (inc ? 1 : -1)) * 60);
+      if (conv.minutes == "00") {
+        conv.minutes = "01";
+      }
       conv.seconds = 0;
+
       return {
         ...prev,
         // value: adjust(60, 60 * 60, prev.value, inc, 60),
@@ -122,6 +134,10 @@ function App() {
       return adjust(1, 60, prev, inc);
     });
   }
+
+  const formatTime = (timer) => {
+    return `${timer.time.minutes}:${timer.time.seconds}`;
+  };
 
   return (
     <div id="wrapper">
@@ -175,12 +191,10 @@ function App() {
       </div>
       <div className="timer">
         <h2 id="timer-label">{!timer.session ? "Session" : "Break"}</h2>
-        <div id="time-left">
-          {timer.time.minutes}:{timer.time.seconds}
-        </div>
+        <div id="time-left">{formatTime(timer)}</div>
         <div>{timer.value}</div>
       </div>
-      <div id="start_stop" className="timer-control">
+      <div className="timer-control">
         <span
           id="start_stop"
           className="material-symbols-outlined arrow control"
